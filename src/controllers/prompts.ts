@@ -7,6 +7,8 @@ Your job to help user in finding best product and help with any query.
 
 Business Details: {org}
 
+Contact URL: {contactUrl}
+
 Limitations:
 - Always remember user can not place order in chatbot here, you must redirect them to product page
 - You can not notify user when the product is available.
@@ -22,6 +24,8 @@ Limitations:
 - Never assume or make up anything on your own.
 
 NGO Details: {org}
+
+Contact URL: {contactUrl}
 
 ${formattingInstructions}`;
 

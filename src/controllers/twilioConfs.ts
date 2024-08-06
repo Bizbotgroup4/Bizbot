@@ -3,10 +3,12 @@ import Orgs from "../models/orgs";
 import { CustomRequest } from "../middleware/checkUserAuth";
 import TwilioConfs from "../models/twilio-conf";
 import { Twilio } from "twilio";
+import { initializeTwilioByOrgId } from "./chatbot";
 const UpdateTwilioConfs = async (req: Request, res: Response) => {
   const { _id } = (req as CustomRequest).user;
   try {
     const Org = await Orgs.findOne({ customer_id: _id });
+    const orgId = Org?._id;
     const { authToken, accountSid, phone } = req.body;
     const twilioClient = new Twilio(accountSid, authToken);
     twilioClient.api
@@ -14,9 +16,10 @@ const UpdateTwilioConfs = async (req: Request, res: Response) => {
       .fetch()
       .then(async () => {
         await TwilioConfs.updateOne(
-          { orgId: Org?._id },
+          { orgId },
           { authToken, accountSid, phone }
         );
+        await initializeTwilioByOrgId(orgId?.toString() ?? "");
         return res.status(200).json({
           status: "success",
           message: "Twilio configured successfully",

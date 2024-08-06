@@ -20,7 +20,7 @@ const NgoTool = async (
   });
   const llm = new ChatOpenAI({
     apiKey: process.env.OPEN_AI_TOKEN,
-    model: "gpt-4o",
+    model: process.env.OPEN_AI_MODEL,
     temperature: 0,
   });
 

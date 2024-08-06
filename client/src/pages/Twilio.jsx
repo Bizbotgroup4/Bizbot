@@ -122,17 +122,6 @@ const Twilio = () => {
                 placeholder="Phone Number"
               />
               <TextInput
-                id="authToken"
-                label="Auth Token"
-                name="authToken"
-                type="text"
-                value={values.authToken}
-                onChange={handleChange}
-                error={errors.authToken && touched.authToken}
-                errorText={errors.authToken}
-                placeholder="Auth Token"
-              />
-              <TextInput
                 id="accountSid"
                 label="Account SID"
                 name="accountSid"
@@ -142,6 +131,17 @@ const Twilio = () => {
                 error={errors.accountSid && touched.accountSid}
                 errorText={errors.accountSid}
                 placeholder="Account SID"
+              />
+              <TextInput
+                id="authToken"
+                label="Auth Token"
+                name="authToken"
+                type="text"
+                value={values.authToken}
+                onChange={handleChange}
+                error={errors.authToken && touched.authToken}
+                errorText={errors.authToken}
+                placeholder="Auth Token"
               />
             </div>
             <div className="flex items-center w-full gap-10">

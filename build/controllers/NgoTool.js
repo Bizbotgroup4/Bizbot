@@ -29,7 +29,7 @@ const NgoTool = (incomingMsg, phone_number, old_message) => __awaiter(void 0, vo
     });
     const llm = new openai_1.ChatOpenAI({
         apiKey: process.env.OPEN_AI_TOKEN,
-        model: "gpt-4o",
+        model: process.env.OPEN_AI_MODEL,
         temperature: 0,
     });
     const tools = [

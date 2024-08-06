@@ -17,12 +17,13 @@ import { businessAgentSystemPrompt, ngoAgentSystemPrompt } from "./prompts";
 const productFields = ['name', 'description', 'price', 'category', 'sizes', 'colors', 'stock', 'url'];
 const campaignFields = ['name', 'description', 'category', 'targetQuantity', 'donationUrl', 'email', 'phone'];
 
-const searchProducts = async (input: { category: string, color: string, size: string }) => {
+const searchProducts = async (orgId: string, input: { category: string, color: string, size: string }) => {
 
   const { category, color, size } = input;
   console.log(`Invoked::searchProducts | Category: ${category} | Color: ${color} | Size: ${size}`);
 
   const query = {
+    orgId,
     ...(category === "Any" ? {} : { category }),
     ...(color === "Any" ? {} : { colors: color }),
     ...(size === "Any" ? {} : { sizes: size }),
@@ -36,12 +37,13 @@ const searchProducts = async (input: { category: string, color: string, size: st
 
 }
 
-const searchCampaigns = async (input: { category: string }) => {
+const searchCampaigns = async (orgId: string, input: { category: string }) => {
 
   const { category } = input;
   console.log(`Invoked::searchCampaigns | Category: ${category}`);
 
   const query = {
+    orgId,
     ...(category === "Any" ? {} : { category }),
   };
   console.log(`Invoked::searchCampaigns | Find Query: ${JSON.stringify(query)}`);
@@ -77,7 +79,7 @@ const getBusinessTools = async (orgId: string) => {
         color: z.string().describe(`Color of the product to search. Allowed value is one of ${colors}`),
         size: z.string().describe(`Size of the product to search. Allowed value is one of ${sizes}`),
       }),
-      func: searchProducts,
+      func: searchProducts.bind(null, orgId),
     }),
 
   ];
@@ -103,7 +105,7 @@ const getNgoTools = async (orgId: string) => {
       schema: z.object({
         category: z.string().describe(`Category of the campaign to search. Allowed value is one of ${categories}`),
       }),
-      func: searchCampaigns,
+      func: searchCampaigns.bind(null, orgId),
     }),
 
   ];
@@ -120,7 +122,7 @@ const executeQuery = async (orgId: string, inputMessage: string, phoneNumber: st
 
   const llm = new ChatOpenAI({
     apiKey: process.env.OPEN_AI_TOKEN,
-    model: "gpt-4o",
+    model: process.env.OPEN_AI_MODEL,
     temperature: 0,
   });
 
@@ -152,6 +154,7 @@ const executeQuery = async (orgId: string, inputMessage: string, phoneNumber: st
     chat_history: oldChat.slice(-10),
     orgName: org?.name,
     org: JSON.stringify(org),
+    contactUrl: `${process.env.PLATFORM_URL}/contact-us?id=${orgId}`,
   });
 
   return result.output;

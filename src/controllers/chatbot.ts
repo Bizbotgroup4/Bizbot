@@ -33,6 +33,61 @@ const initializeTwilio = async () => {
   console.log("Twilio client initialized!");
 };
 
+const initializeTwilioByOrgId = async (orgId: string) => {
+
+  const client = await getTwilioClient(orgId);
+
+  if (client == null) {
+    console.log(`initializeTwilioByOrgId::OrgId: ${orgId} | Couldn't initialize Twilio client!`);
+    return;
+  }
+
+  clients[orgId] = client;
+
+  console.log(`initializeTwilioByOrgId::OrgId: ${orgId} | Twilio client initialized!`);
+
+}
+
+const getTwilioClient = async (orgId: string) => {
+
+  const twilioConf = await TwilioConfs.findOne({ orgId });
+
+  if (twilioConf == null || !twilioConf?.accountSid || !twilioConf.authToken)
+    return;
+
+  let client = null;
+  try {
+    client = twilio(twilioConf.accountSid, twilioConf.authToken);
+  } catch (error) {
+    console.log(`twilio connection error for this organization id ${orgId}`, error);
+  }
+
+  return client;
+
+}
+
+const sendMessage = async (client: Twilio, to: string, from: string, text: string) => {
+
+  const messages = [];
+  if (text.length >= 1600) {
+    messages.push(...text.split("\n\n"));
+  } else {
+    messages.push(text)
+  }
+
+  let message = { sid: 'null', status: 'null' };
+  for (const messageStr of messages) {
+    message = await client.messages.create({
+      from: to,
+      to: from,
+      body: messageStr,
+    });
+  }
+
+  return message;
+
+}
+
 const chatBot = async (req: Request, res: Response) => {
   const openai = new OpenAIApi.OpenAI({ apiKey: process.env.OPEN_AI_TOKEN });
 
@@ -44,12 +99,16 @@ const chatBot = async (req: Request, res: Response) => {
   const from = req.body.From;
   const phone_number = req.body.From.replace("whatsapp:", "");
 
-  if (clients[orgId] == null) {
-    console.log(
-      `webhook::OrgId: ${orgId} | Twilio client not found for orgId.`
-    );
-  }
   const client = clients[orgId];
+
+  console.log("================== New Request ==================");
+  console.log(`webhook::OrgId: ${orgId} | From: ${from} | To: ${to}`);
+  console.log(`webhook::OrgId: ${orgId} | Question: ${incomingMsg}`);
+
+  if (client == null) {
+    console.log(`webhook::OrgId: ${orgId} | Twilio client not found for orgId.`);
+    return;
+  }
 
   const is_user_exist = await Users.findOne({ phone_number });
 
@@ -59,10 +118,6 @@ const chatBot = async (req: Request, res: Response) => {
   } catch (error) {
     // do nothing as it's already handled below
   }
-
-  console.log("================== New Request ==================");
-  console.log(`webhook::OrgId: ${orgId} | From: ${from} | To: ${to}`);
-  console.log(`webhook::OrgId: ${orgId} | Question: ${incomingMsg}`);
 
   let answer = "...";
 
@@ -80,7 +135,7 @@ const chatBot = async (req: Request, res: Response) => {
   } else if (!is_user_exist.city) {
     const prompt = cityDetectionPrompt(req.body.Body);
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: process.env.OPEN_AI_MODEL ?? "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
@@ -139,11 +194,9 @@ const chatBot = async (req: Request, res: Response) => {
   }
 
   try {
-    const message = await client.messages.create({
-      from: to,
-      to: from,
-      body: answer,
-    });
+
+    const message = await sendMessage(client, to, from, answer);
+
     console.log(`webhook::OrgId: ${orgId} | Answer: ${answer}`);
     console.log(
       `webhook::OrgId: ${orgId} | MessageSID: ${message.sid} | MessageStatus: ${message.status}`
@@ -155,4 +208,4 @@ const chatBot = async (req: Request, res: Response) => {
   res.end();
 };
 
-export { initializeTwilio, chatBot };
+export { initializeTwilio, initializeTwilioByOrgId, chatBot };

@@ -16,17 +16,21 @@ exports.GetTwilioConfs = exports.UpdateTwilioConfs = void 0;
 const orgs_1 = __importDefault(require("../models/orgs"));
 const twilio_conf_1 = __importDefault(require("../models/twilio-conf"));
 const twilio_1 = require("twilio");
+const chatbot_1 = require("./chatbot");
 const UpdateTwilioConfs = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { _id } = req.user;
     try {
         const Org = yield orgs_1.default.findOne({ customer_id: _id });
+        const orgId = Org === null || Org === void 0 ? void 0 : Org._id;
         const { authToken, accountSid, phone } = req.body;
         const twilioClient = new twilio_1.Twilio(accountSid, authToken);
         twilioClient.api
             .accounts(accountSid)
             .fetch()
             .then(() => __awaiter(void 0, void 0, void 0, function* () {
-            yield twilio_conf_1.default.updateOne({ orgId: Org === null || Org === void 0 ? void 0 : Org._id }, { authToken, accountSid, phone });
+            var _a;
+            yield twilio_conf_1.default.updateOne({ orgId }, { authToken, accountSid, phone });
+            yield (0, chatbot_1.initializeTwilioByOrgId)((_a = orgId === null || orgId === void 0 ? void 0 : orgId.toString()) !== null && _a !== void 0 ? _a : "");
             return res.status(200).json({
                 status: "success",
                 message: "Twilio configured successfully",

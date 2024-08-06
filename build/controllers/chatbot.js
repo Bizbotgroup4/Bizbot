@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.chatBot = exports.initializeTwilio = void 0;
+exports.chatBot = exports.initializeTwilioByOrgId = exports.initializeTwilio = void 0;
 const twilio_1 = __importDefault(require("twilio"));
 const openai_1 = __importDefault(require("openai"));
 const orgs_1 = __importDefault(require("../models/orgs"));
@@ -39,8 +39,49 @@ const initializeTwilio = () => __awaiter(void 0, void 0, void 0, function* () {
     console.log("Twilio client initialized!");
 });
 exports.initializeTwilio = initializeTwilio;
+const initializeTwilioByOrgId = (orgId) => __awaiter(void 0, void 0, void 0, function* () {
+    const client = yield getTwilioClient(orgId);
+    if (client == null) {
+        console.log(`initializeTwilioByOrgId::OrgId: ${orgId} | Couldn't initialize Twilio client!`);
+        return;
+    }
+    clients[orgId] = client;
+    console.log(`initializeTwilioByOrgId::OrgId: ${orgId} | Twilio client initialized!`);
+});
+exports.initializeTwilioByOrgId = initializeTwilioByOrgId;
+const getTwilioClient = (orgId) => __awaiter(void 0, void 0, void 0, function* () {
+    const twilioConf = yield twilio_conf_1.default.findOne({ orgId });
+    if (twilioConf == null || !(twilioConf === null || twilioConf === void 0 ? void 0 : twilioConf.accountSid) || !twilioConf.authToken)
+        return;
+    let client = null;
+    try {
+        client = (0, twilio_1.default)(twilioConf.accountSid, twilioConf.authToken);
+    }
+    catch (error) {
+        console.log(`twilio connection error for this organization id ${orgId}`, error);
+    }
+    return client;
+});
+const sendMessage = (client, to, from, text) => __awaiter(void 0, void 0, void 0, function* () {
+    const messages = [];
+    if (text.length >= 1600) {
+        messages.push(...text.split("\n\n"));
+    }
+    else {
+        messages.push(text);
+    }
+    let message = { sid: 'null', status: 'null' };
+    for (const messageStr of messages) {
+        message = yield client.messages.create({
+            from: to,
+            to: from,
+            body: messageStr,
+        });
+    }
+    return message;
+});
 const chatBot = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     const openai = new openai_1.default.OpenAI({ apiKey: process.env.OPEN_AI_TOKEN });
     // const orgId = "6682fb77038d6b31df3bebc0"; // business
     // const orgId = "66915e179951cd4ad9bfb945"; // ngo
@@ -49,10 +90,14 @@ const chatBot = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const to = req.body.To;
     const from = req.body.From;
     const phone_number = req.body.From.replace("whatsapp:", "");
-    if (clients[orgId] == null) {
-        console.log(`webhook::OrgId: ${orgId} | Twilio client not found for orgId.`);
-    }
     const client = clients[orgId];
+    console.log("================== New Request ==================");
+    console.log(`webhook::OrgId: ${orgId} | From: ${from} | To: ${to}`);
+    console.log(`webhook::OrgId: ${orgId} | Question: ${incomingMsg}`);
+    if (client == null) {
+        console.log(`webhook::OrgId: ${orgId} | Twilio client not found for orgId.`);
+        return;
+    }
     const is_user_exist = yield users_1.default.findOne({ phone_number });
     let org = null;
     try {
@@ -61,9 +106,6 @@ const chatBot = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     catch (error) {
         // do nothing as it's already handled below
     }
-    console.log("================== New Request ==================");
-    console.log(`webhook::OrgId: ${orgId} | From: ${from} | To: ${to}`);
-    console.log(`webhook::OrgId: ${orgId} | Question: ${incomingMsg}`);
     let answer = "...";
     if (typeof orgId !== "string" || org == null) {
         answer =
@@ -80,11 +122,11 @@ const chatBot = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     else if (!is_user_exist.city) {
         const prompt = (0, prompts_1.cityDetectionPrompt)(req.body.Body);
         const response = yield openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+            model: (_c = process.env.OPEN_AI_MODEL) !== null && _c !== void 0 ? _c : "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" },
         });
-        let jsonString = (_d = (_c = response.choices[0].message.content) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "";
+        let jsonString = (_e = (_d = response.choices[0].message.content) === null || _d === void 0 ? void 0 : _d.trim()) !== null && _e !== void 0 ? _e : "";
         if (jsonString.includes("```") === true) {
             jsonString = jsonString.split(/```(?:json)?/)[1];
         }
@@ -120,11 +162,7 @@ const chatBot = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         answer = response;
     }
     try {
-        const message = yield client.messages.create({
-            from: to,
-            to: from,
-            body: answer,
-        });
+        const message = yield sendMessage(client, to, from, answer);
         console.log(`webhook::OrgId: ${orgId} | Answer: ${answer}`);
         console.log(`webhook::OrgId: ${orgId} | MessageSID: ${message.sid} | MessageStatus: ${message.status}`);
     }

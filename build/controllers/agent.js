@@ -27,19 +27,19 @@ const orgTypes_1 = __importDefault(require("../constants/orgTypes"));
 const prompts_2 = require("./prompts");
 const productFields = ['name', 'description', 'price', 'category', 'sizes', 'colors', 'stock', 'url'];
 const campaignFields = ['name', 'description', 'category', 'targetQuantity', 'donationUrl', 'email', 'phone'];
-const searchProducts = (input) => __awaiter(void 0, void 0, void 0, function* () {
+const searchProducts = (orgId, input) => __awaiter(void 0, void 0, void 0, function* () {
     const { category, color, size } = input;
     console.log(`Invoked::searchProducts | Category: ${category} | Color: ${color} | Size: ${size}`);
-    const query = Object.assign(Object.assign(Object.assign({}, (category === "Any" ? {} : { category })), (color === "Any" ? {} : { colors: color })), (size === "Any" ? {} : { sizes: size }));
+    const query = Object.assign(Object.assign(Object.assign({ orgId }, (category === "Any" ? {} : { category })), (color === "Any" ? {} : { colors: color })), (size === "Any" ? {} : { sizes: size }));
     console.log(`Invoked::searchProducts | Find Query: ${JSON.stringify(query)}`);
     const products = yield products_1.default.find(query, productFields).limit(10);
     console.log(`Result::searchProducts | Products: ${JSON.stringify(products)}`);
     return JSON.stringify(products);
 });
-const searchCampaigns = (input) => __awaiter(void 0, void 0, void 0, function* () {
+const searchCampaigns = (orgId, input) => __awaiter(void 0, void 0, void 0, function* () {
     const { category } = input;
     console.log(`Invoked::searchCampaigns | Category: ${category}`);
-    const query = Object.assign({}, (category === "Any" ? {} : { category }));
+    const query = Object.assign({ orgId }, (category === "Any" ? {} : { category }));
     console.log(`Invoked::searchCampaigns | Find Query: ${JSON.stringify(query)}`);
     const campaigns = yield campaigns_1.default.find(query, campaignFields).limit(10);
     console.log(`Result::searchCampaigns | Campaigns: ${JSON.stringify(campaigns)}`);
@@ -65,7 +65,7 @@ const getBusinessTools = (orgId) => __awaiter(void 0, void 0, void 0, function* 
                 color: zod_1.z.string().describe(`Color of the product to search. Allowed value is one of ${colors}`),
                 size: zod_1.z.string().describe(`Size of the product to search. Allowed value is one of ${sizes}`),
             }),
-            func: searchProducts,
+            func: searchProducts.bind(null, orgId),
         }),
     ];
     console.log(`getBusinessTools::Tools: ${tools.map(tool => tool.name)}`);
@@ -83,7 +83,7 @@ const getNgoTools = (orgId) => __awaiter(void 0, void 0, void 0, function* () {
             schema: zod_1.z.object({
                 category: zod_1.z.string().describe(`Category of the campaign to search. Allowed value is one of ${categories}`),
             }),
-            func: searchCampaigns,
+            func: searchCampaigns.bind(null, orgId),
         }),
     ];
     console.log(`getNgoTools::Tools: ${tools.map(tool => tool.name)}`);
@@ -94,7 +94,7 @@ const executeQuery = (orgId, inputMessage, phoneNumber, oldMessage) => __awaiter
     console.log(`executeQuery::Organization: ${JSON.stringify(org)}`);
     const llm = new openai_1.ChatOpenAI({
         apiKey: process.env.OPEN_AI_TOKEN,
-        model: "gpt-4o",
+        model: process.env.OPEN_AI_MODEL,
         temperature: 0,
     });
     const tools = (org === null || org === void 0 ? void 0 : org.type) === orgTypes_1.default.BUSINESS
@@ -119,6 +119,7 @@ const executeQuery = (orgId, inputMessage, phoneNumber, oldMessage) => __awaiter
         chat_history: oldChat.slice(-10),
         orgName: org === null || org === void 0 ? void 0 : org.name,
         org: JSON.stringify(org),
+        contactUrl: `${process.env.PLATFORM_URL}/contact-us?id=${orgId}`,
     });
     return result.output;
 });
