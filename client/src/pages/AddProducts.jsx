@@ -60,7 +60,7 @@ const AddProducts = ({ isEdit }) => {
       body: JSON.stringify({
         ...values,
         sizes: values.sizes.map((item) => item.value),
-        colors: values.sizes.map((item) => item.value),
+        colors: values.colors.map((item) => item.value),
       }),
     })
       .then((res) => res.json())
